@@ -16,7 +16,6 @@ from sbx.common.type_aliases import RLTrainState
 
 tfd = tfp.distributions
 
-
 class BroNetBlock(nn.Module):
     n_units: int
     activation_fn: Callable[[jnp.ndarray], jnp.ndarray] = nn.relu
@@ -30,21 +29,19 @@ class BroNetBlock(nn.Module):
         out = nn.LayerNorm()(out)
         return x + out
 
-
 class BroNet(nn.Module):
     net_arch: Sequence[int]
     activation_fn: Callable[[jnp.ndarray], jnp.ndarray] = nn.relu
-
+    
     @nn.compact
-    def __call__(self, x: jnp.ndarray) -> jnp.ndarray:
+    def __call__(self, x: jnp.ndarray) -> jnp.ndarray: 
         x = nn.Dense(self.net_arch[0], self.activation_fn)(x)
         x = nn.LayerNorm()(x)
         x = self.activation_fn(x)
         for n_units in self.net_arch:
             x = BroNetBlock(n_units)(x)
         return x
-
-
+    
 class Actor(nn.Module):
     net_arch: Sequence[int]
     action_dim: int
@@ -67,8 +64,7 @@ class Actor(nn.Module):
             tfd.MultivariateNormalDiag(loc=mean, scale_diag=jnp.exp(log_std)),
         )
         return dist
-
-
+    
 class Critic(nn.Module):
     net_arch: Sequence[int]
     n_quantiles: int = 100
@@ -82,8 +78,7 @@ class Critic(nn.Module):
         out = BroNet(self.net_arch, self.activation_fn)(out)
         out = nn.Dense(self.n_quantiles)(out)
         return out
-
-
+    
 class VectorCritic(nn.Module):
     net_arch: Sequence[int]
     n_quantiles: int = 100
@@ -110,7 +105,6 @@ class VectorCritic(nn.Module):
         )(obs, action)
         return q_values
 
-
 class BROPolicy(BaseJaxPolicy):
     action_space: spaces.Box  # type: ignore[assignment]
 
@@ -126,7 +120,7 @@ class BROPolicy(BaseJaxPolicy):
         dropout_rate: float = 0.0,
         layer_norm: bool = True,
         activation_fn: Callable[[jnp.ndarray], jnp.ndarray] = nn.relu,
-        use_sde: bool = False,
+        use_sde: bool = False,        
         # Note: most gSDE parameters are not used
         # this is to keep API consistent with SB3
         log_std_init: float = -3,
@@ -156,7 +150,7 @@ class BROPolicy(BaseJaxPolicy):
             optimizer_kwargs=optimizer_kwargs,
             squash_output=True,
         )
-
+        
         self.dropout_rate = dropout_rate
         self.layer_norm = layer_norm
         self.n_quantiles = n_quantiles
@@ -169,14 +163,17 @@ class BROPolicy(BaseJaxPolicy):
         else:
             self.net_arch_pi = [256]
             # In the paper we use [512, 512] although we also use higher RR, here we use bigger network size to compensate for the smaller RR
-            self.net_arch_qf = [1024, 1024]
+            self.net_arch_qf = [512, 512]
+        print(self.net_arch_qf)
         self.n_critics = n_critics
         self.use_sde = use_sde
         self.activation_fn = activation_fn
 
         self.key = self.noise_key = jax.random.PRNGKey(0)
 
-    def build(self, key: jax.Array, lr_schedule: Schedule, qf_learning_rate: float) -> jax.Array:
+    def build(self, key: jax.Array, 
+              lr_schedule: Schedule, 
+              qf_learning_rate: float) -> jax.Array:
         key, actor_key, qf_key, dropout_key = jax.random.split(key, 4)
         # Keep a key for the actor
         key, self.key = jax.random.split(key, 2)
@@ -203,7 +200,7 @@ class BROPolicy(BaseJaxPolicy):
             params=self.actor.init(actor_key, obs),
             tx=self.optimizer_class(
                 learning_rate=lr_schedule(1),  # type: ignore[call-arg]
-                # learning_rate=qf_learning_rate,  # type: ignore[call-arg]
+                #learning_rate=qf_learning_rate,  # type: ignore[call-arg]
                 **self.optimizer_kwargs,
             ),
         )
@@ -258,3 +255,6 @@ class BROPolicy(BaseJaxPolicy):
         if not self.use_sde:
             self.reset_noise()
         return BaseJaxPolicy.sample_action(self.actor_state, observation, self.noise_key)
+    
+    
+
