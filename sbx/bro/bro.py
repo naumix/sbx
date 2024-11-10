@@ -130,14 +130,13 @@ class BRO(OffPolicyAlgorithmJax):
         self.policy_delay = policy_delay
         self.ent_coef_init = ent_coef
         self.target_entropy = target_entropy
-        self.init_key = jax.random.PRNGKey(seed)
         
         self.n_quantiles = n_quantiles
         taus_ = jnp.arange(0, n_quantiles+1) / n_quantiles
         self.quantile_taus = ((taus_[1:] + taus_[:-1]) / 2.0)[None, ..., None]
         self.pessimism = pessimism
-        
         self.distributional = True if self.n_quantiles > 1 else False
+        
         if _init_setup_model:
             self._setup_model()
 
@@ -157,7 +156,7 @@ class BRO(OffPolicyAlgorithmJax):
 
             assert isinstance(self.qf_learning_rate, float)
 
-            self.key = self.policy.build(self.init_key, self.lr_schedule, self.qf_learning_rate)
+            self.key = self.policy.build(self.key, self.lr_schedule, self.qf_learning_rate)
 
             self.key, ent_key = jax.random.split(self.key, 2)
 
